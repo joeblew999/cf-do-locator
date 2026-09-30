@@ -1,6 +1,5 @@
 # Rust
 target/
-Cargo.lock
 
 # Workers / wrangler
 build/
