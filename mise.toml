@@ -3,6 +3,7 @@
 idiomatic_version_file_enable_tools = ["rust"]
 
 [tools]
+"aqua:protocolbuffers/protobuf/protoc" = "35.0"
 "aqua:nushell/nushell" = "0.116.0"
 
 # Cloudflare Workers CLI: dev + deploys. Drives worker-build.
