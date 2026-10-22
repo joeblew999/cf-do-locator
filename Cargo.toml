@@ -2,7 +2,7 @@
 name = "cf-do-locator"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.91"
 authors = ["Joe Blew <gedw99@gmail.com>"]
 description = "Cloudflare colo → Durable Objects locationHint lookup service (ConnectRPC on Workers, KV-backed)"
 license = "MIT"
@@ -18,9 +18,9 @@ worker-macros = { version = "0.8", features = ["http"] }
 
 # ConnectRPC + protobuf runtime. Pinned to match connectrpc-cedar so
 # downstream consumers can vendor both without version conflict.
-connectrpc  = { version = "0.4", default-features = false }
-buffa       = { version = "0.5", features = ["json"] }
-buffa-types = { version = "0.5", features = ["json"] }
+connectrpc  = { version = "0.9", default-features = false, features = ["json"] }
+buffa       = { version = "0.9", features = ["json"] }
+buffa-types = { version = "0.9", features = ["json"] }
 
 # Async middleware.
 tower = { version = "0.5", default-features = false, features = ["util"] }
@@ -41,11 +41,8 @@ futures = "0.3"
 # Tracing (logs go to Workers console via the worker crate's adapter).
 tracing = { version = "0.1", default-features = false, features = ["std", "attributes"] }
 
-# OS RNG on wasm32 — used transitively if any dep wants entropy.
-getrandom = { version = "0.2", features = ["js"] }
-
 [build-dependencies]
-connectrpc-build = { version = "0.4" }
+connectrpc-build = { version = "0.9" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt"] }
