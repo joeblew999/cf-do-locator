@@ -106,6 +106,7 @@ pub async fn run(env: &Env) -> worker::Result<()> {
         .into_send()
         .await
         .map_err(|e| worker::Error::RustError(format!("kv put: {e}")))?;
+    crate::service::invalidate_snapshot_cache();
 
     worker::console_log!(
         "refresh complete: {} colos, {} with hint",

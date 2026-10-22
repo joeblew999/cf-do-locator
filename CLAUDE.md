@@ -10,31 +10,31 @@ Not a library crate, despite `cdylib + rlib`. The `rlib` is for native unit test
 
 ## Version pins
 
-Match these against [[connectrpc-cedar]] so consumers can compose both without resolver conflict.
+No version coupling with other repos: consumers vendor the proto and call over HTTP, so these pins never enter anyone else's `Cargo.lock`. We still track the same connectrpc line as [cf-connectrpc-middleware](https://github.com/joeblew999/cf-connectrpc-middleware) to keep one set of gotchas.
 
 | Dep                | Version  |
 | ------------------ | -------- |
 | `worker`           | `0.8` (features: `http`) |
 | `worker-macros`    | `0.8`    |
-| `connectrpc`       | `0.4`    |
-| `connectrpc-build` | `0.4`    |
-| `buffa`            | `0.5`    |
-| `buffa-types`      | `0.5`    |
+| `connectrpc`       | `0.9`    |
+| `connectrpc-build` | `0.9`    |
+| `buffa`            | `0.9`    |
+| `buffa-types`      | `0.9`    |
 | `tower`            | `0.5`    |
 | `http`             | `1`      |
 | `http-body`        | `1`      |
 | `http-body-util`   | `0.1`    |
 | `serde` / `serde_json` | `1`  |
 | edition            | `2024`   |
-| rust-version       | `1.88`   |
+| rust-version       | `1.91` (worker 0.8.7 needs it) |
 
 Build target: **`wasm32-unknown-unknown`** (not `wasm32-wasip1`).
 
-If you bump a version here, also check `connectrpc-cedar` — diverging makes downstream consumers' `Cargo.lock` resolve to two conflicting graphs.
+`connectrpc` needs `features = ["json"]` (it's opt-in since 0.8 and we set `default-features = false`); without it every JSON request is HTTP 415. `wrangler.toml` installs `worker-build@^0.8`, and worker-build 0.8.7 needs wasm-bindgen ≥ 0.2.125 in `Cargo.lock`, so run `cargo update` when you bump.
 
 ## Critical workers-rs gotchas
 
-1. **`.into_send()` before `.await`** — every KV / Fetch / D1 call. `connectrpc 0.4`'s service trait requires `+ Send` on the returned future; worker futures hold `JsValue` which is `!Send`. Pattern:
+1. **`.into_send()` before `.await`** — every KV / Fetch / D1 call. `connectrpc`'s service trait requires `+ Send` on the returned future; worker futures hold `JsValue` which is `!Send`. Pattern:
 
    ```rust
    use worker::send::IntoSendFuture;
@@ -59,6 +59,10 @@ If you bump a version here, also check `connectrpc-cedar` — diverging makes do
    }
    ```
 
+4. **Don't re-read KV blobs per request.** Reading + parsing the 344-colo snapshot on every RPC was ~6 ms of a ~9 ms request (switching `.json()` to `.text()` + serde_json made no measurable difference). `load_snapshot` caches it per isolate; do the same for any other hot KV read.
+
+5. **Read CF production CPU profiles by sample count, not by time.** The profiling API's sample values are wall-clock gaps between samples, and an idle isolate takes no samples, so idle time lands on whatever frame runs first after an `await` (e.g. `reader.releaseLock()`). Ground truth for per-request CPU is GraphQL `workersInvocationsAdaptive` `cpuTime` quantiles.
+
 ## Architecture
 
 ```
@@ -72,7 +76,7 @@ KV is canonical. Anyone can blow away the local checkout — the live state is i
 
 ```
 src/lib.rs          fetch + scheduled event handlers; wires LocatorServer into ConnectRpcService
-src/service.rs      LocatorService impl — every RPC: load_snapshot() then map to pb
+src/service.rs      LocatorService impl — every RPC: load_snapshot() (isolate-cached, 60 s TTL) then map to pb
 src/refresh.rs      download upstream, merge, hysteresis, KV put. Native-testable.
 src/snapshot.rs     KV blob shape (Snapshot, ColoEntry) + proto conversions
 src/state.rs        AppState = { kv, snapshot_key }

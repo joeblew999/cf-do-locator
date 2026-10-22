@@ -48,10 +48,7 @@ async fn fetch(
         // Try Cf extension first (canonical workers-rs path), fall back to
         // parsing the cf-ray header (`<ray_id>-<COLO>`). Either should
         // work in prod; one or the other might be empty in dev.
-        let colo_from_cf = req
-            .extensions()
-            .get::<worker::Cf>()
-            .map(|cf| cf.colo());
+        let colo_from_cf = req.extensions().get::<worker::Cf>().map(|cf| cf.colo());
         let colo_from_ray = req
             .headers()
             .get("cf-ray")
