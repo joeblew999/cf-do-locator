@@ -5,6 +5,8 @@ idiomatic_version_file_enable_tools = ["rust"]
 [tools]
 "aqua:protocolbuffers/protobuf/protoc" = "35.0"
 "aqua:nushell/nushell" = "0.116.0"
+# Node: npm:wrangler and proto:lint (npx) run on it. It came from the global mise config, which other developers don't have.
+node = "26.12.1"
 
 # Cloudflare Workers CLI: dev + deploys. Drives worker-build.
 "npm:wrangler" = "4.90.1"
