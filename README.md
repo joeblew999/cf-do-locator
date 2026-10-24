@@ -1,5 +1,40 @@
 # cf-do-locator
 
+## What this is for: per-country sharding
+
+**Run the same copy of your app in every country.** One Worker and one Durable Object class, deployed once. Each country is its own shard, with its own data, living in the Cloudflare region nearest that country.
+
+```
+/th/...  →  shard "th"  →  Durable Object in APAC
+/au/...  →  shard "au"  →  Durable Object in OC
+/de/...  →  shard "de"  →  Durable Object in WEUR
+```
+
+Why this makes scaling easy:
+
+- **Writes are local.** Each country's shard is its own write origin. There's no single origin far away from most of your users.
+- **Adding a country is adding a row, not a redesign.** The code is the same for every country. A new country is a new entry in the country → region table.
+- **Routing is free.** The country is already the first segment of the URL (for SEO), so the shard name comes straight from the URL. No directory, no lookup.
+- **Travel just works.** Data belongs to its country. A user who travels reaches the shard that owns the data, wherever they are.
+
+**What this repo does at the top level:** it decides which region each country's shard lives in. A Durable Object can never move once it's created, so placement is the one decision you have to get right, and you only make it once per country.
+
+```ts
+const country = url.pathname.split("/")[1];             // "th"
+const id = env.SHARD.idFromName(country);
+const stub = env.SHARD.get(id, { locationHint: HINT[country] });  // "apac"
+```
+
+### Status
+
+- **Done:** weekly refresh of measured latency from every Cloudflare edge to every Durable Object region, served over RPC (the per-edge service described below).
+- **Next:** roll that data up into a **country → region table**, published as generated TS and Rust files that apps vendor in, with no runtime call. Add a `shardFor(country)` helper that supports sub-splits for big countries (for example `us-ca`). Once a country's placement is set, it never changes.
+- **Note:** the funnel helpers in the sections below are demos. They return synthetic IDs and don't create real Durable Objects yet.
+
+---
+
+## Current: per-edge lookup service
+
 **Place every Durable Object near its user, automatically.**
 
 Drop into any Cloudflare Worker in 3 steps. Live: **https://cf-do-locator.gedw99.workers.dev** (interactive demo).
